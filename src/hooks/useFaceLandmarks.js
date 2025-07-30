@@ -32,7 +32,8 @@ export default function useFaceLandmarks(videoRef, alpha = 0.6) {
     useEffect(() => {
         // Carga dinámica para que Vite empaquete correctamente el worker
         workerRef.current = new Worker(
-            new URL('../workers/faceWorker.js', import.meta.url)
+            new URL('../workers/faceWorker.j?worker', import.meta.url),
+            { type: 'classic' }
         );
 
         // Iniciar el worker

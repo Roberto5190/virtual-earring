@@ -5,7 +5,13 @@ const CameraFeed = forwardRef(function CameraFeed(_, videoRef) {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        const constraints = { video: { facingMode: 'user', width: 640, height: 640 } };
+        const constraints = {
+            video: {
+                facingMode: { ideal: 'user' },
+                width: { ideal: 640 },
+                height: { ideal: 640 }
+            }
+        };
 
         navigator.mediaDevices
             .getUserMedia(constraints)
@@ -16,8 +22,11 @@ const CameraFeed = forwardRef(function CameraFeed(_, videoRef) {
                 }
             })
             .catch(err => {
-                console.error(err);
-                setError('No se pudo acceder a la cámara. Revisa permisos y hardware.');
+                if (err.name === "NotFoundError") {
+                    // Reintenta sin constraints estrictas
+                    return navigator.mediaDevices.getUserMedia({ video: true });
+                }
+                throw err;
             });
 
         return () => videoRef.current?.srcObject?.getTracks().forEach(t => t.stop());
