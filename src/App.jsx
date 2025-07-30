@@ -1,6 +1,6 @@
-import CameraFeed from './components/CameraFeed'
 import { useRef } from 'react';
-import useFaceLandmarks from './hooks/useFaceLandmarks';
+import CameraFeed from './components/CameraFeed'
+import LandmarkDebugCanvas from './components/LandmarkDebugCanvas';
 import './App.css'
 
 function App() {
@@ -13,7 +13,7 @@ function App() {
       <div className='grid place-items-center h-screen'>
         <CameraFeed ref={videoRef} />
       </div>
-
+      <LandmarkDebugCanvas videoRef={videoRef} />
     </>
   )
 }
