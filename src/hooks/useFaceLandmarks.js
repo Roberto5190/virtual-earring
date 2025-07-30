@@ -8,11 +8,11 @@ import { useEffect, useRef, useState } from 'react';
  * @param {number} alpha - 0-1, cuanto mayor más “rápido” responde (0.6 recomendado)
  */
 function smooth(prev, curr, alpha = 0.6) {
-  return {
-    x: alpha * curr.x + (1 - alpha) * prev.x,
-    y: alpha * curr.y + (1 - alpha) * prev.y,
-    z: alpha * curr.z + (1 - alpha) * prev.z
-  };
+    return {
+        x: alpha * curr.x + (1 - alpha) * prev.x,
+        y: alpha * curr.y + (1 - alpha) * prev.y,
+        z: alpha * curr.z + (1 - alpha) * prev.z
+    };
 }
 
 /**
@@ -24,74 +24,73 @@ function smooth(prev, curr, alpha = 0.6) {
  * @param {number} alpha  coeficiente de suavizado EMA (0.6-0.8 habitual)
  */
 export default function useFaceLandmarks(videoRef, alpha = 0.6) {
-  const [landmarks, setLandmarks] = useState(null);
-  const workerRef = useRef(null);
-  const prevRef = useRef(null);
+    const [landmarks, setLandmarks] = useState(null);
+    const workerRef = useRef(null);
+    const prevRef = useRef(null);
 
-  /** —— 1. Crear y preparar el Web Worker (una sola vez) */
-  useEffect(() => {
-    // Carga dinámica para que Vite empaquete correctamente el worker
-    workerRef.current = new Worker(
-      new URL('../workers/faceWorker.js', import.meta.url),
-      { type: 'module' }
-    );
+    /** —— 1. Crear y preparar el Web Worker (una sola vez) */
+    useEffect(() => {
+        // Carga dinámica para que Vite empaquete correctamente el worker
+        workerRef.current = new Worker(
+            new URL('../workers/faceWorker.js', import.meta.url)
+        );
 
-    // Iniciar el worker
-    workerRef.current.postMessage({ type: 'init' });
+        // Iniciar el worker
+        workerRef.current.postMessage({ type: 'init' });
 
-    // Escuchar resultados
-    workerRef.current.onmessage = ({ data }) => {
-      if (data.type !== 'result') return;
+        // Escuchar resultados
+        workerRef.current.onmessage = ({ data }) => {
+            if (data.type !== 'result') return;
 
-      const raw = data.result?.faceLandmarks?.[0] ?? null;
-      if (!raw) {
-        setLandmarks(null);
-        prevRef.current = null;
-        return;
-      }
+            const raw = data.result?.faceLandmarks?.[0] ?? null;
+            if (!raw) {
+                setLandmarks(null);
+                prevRef.current = null;
+                return;
+            }
 
-      // Si es el primer frame, no suavizamos
-      if (!prevRef.current) {
-        prevRef.current = raw;
-        setLandmarks(raw);
-        return;
-      }
+            // Si es el primer frame, no suavizamos
+            if (!prevRef.current) {
+                prevRef.current = raw;
+                setLandmarks(raw);
+                return;
+            }
 
-      // Suavizar cada punto con EMA
-      const smoothed = raw.map((pt, i) => smooth(prevRef.current[i], pt, alpha));
-      prevRef.current = smoothed;
-      setLandmarks(smoothed);
-    };
+            // Suavizar cada punto con EMA
+            const smoothed = raw.map((pt, i) => smooth(prevRef.current[i], pt, alpha));
+            prevRef.current = smoothed;
+            setLandmarks(smoothed);
+        };
 
-    // Limpieza al desmontar
-    return () => workerRef.current?.terminate();
-  }, [alpha]);
+        // Limpieza al desmontar
+        return () => workerRef.current?.terminate();
+    }, [alpha]);
 
-  /** —— 2. Enviar cada frame del vídeo al Worker */
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
+    /** —— 2. Enviar cada frame del vídeo al Worker */
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
 
-    // requestVideoFrameCallback no existe en Firefox aún ⇒ fallback a setTimeout
-    const schedule = video.requestVideoFrameCallback
-      ? cb => video.requestVideoFrameCallback(cb)
-      : cb => setTimeout(() => cb(0, { mediaTime: video.currentTime }), 16);
+        // requestVideoFrameCallback no existe en Firefox aún ⇒ fallback a setTimeout
+        const schedule = video.requestVideoFrameCallback
+            ? cb => video.requestVideoFrameCallback(cb)
+            : cb => setTimeout(() => cb(0, { mediaTime: video.currentTime }), 16);
 
-    const loop = async (_, info) => {
-      // Crear ImageBitmap transferible (cero copia)
-      const bitmap = await createImageBitmap(video);
+        const loop = async (_, info) => {
+            // Crear ImageBitmap transferible (cero copia)
+            const bitmap = await createImageBitmap(video);
 
-      workerRef.current?.postMessage(
-        { type: 'frame', bitmap, timestamp: info.mediaTime },
-        [bitmap] // Transfiere la memoria
-      );
+            workerRef.current?.postMessage(
+                { type: 'frame', bitmap, timestamp: info.mediaTime },
+                [bitmap] // Transfiere la memoria
+            );
 
-      // Solicitar el siguiente frame
-      schedule(loop);
-    };
+            // Solicitar el siguiente frame
+            schedule(loop);
+        };
 
-    schedule(loop);
-  }, [videoRef]);
+        schedule(loop);
+    }, [videoRef]);
 
-  return landmarks; // null | Array<{x,y,z}>
+    return landmarks; // null | Array<{x,y,z}>
 }
