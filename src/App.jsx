@@ -7,7 +7,10 @@ function App() {
   return (
     <>
       <h1>Virtual Earring</h1>
-      <CameraFeed />
+      <div className='grid place-items-center h-screen'>
+        <CameraFeed />
+      </div>
+
     </>
   )
 }
