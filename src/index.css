@@ -20,10 +20,9 @@ body {
   display: flex;
   place-items: center;
   flex-direction: column;
-  min-width: 100svw;
-  min-height: 100svh;
+  min-width: 100vw;
+  min-height: 100vh;
 }
-
 
 
 @media (prefers-color-scheme: light) {
