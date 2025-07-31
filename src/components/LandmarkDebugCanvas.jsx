@@ -6,10 +6,12 @@ export default function LandmarkDebugCanvas({ videoRef }) {
     const landmarks = useFaceLandmarks(videoRef);
 
     useEffect(() => {
-        if (!landmarks || !canvasRef.current || !videoRef.current) return;
-        const ctx = canvasRef.current.getContext('2d');
-        canvasRef.current.width = videoRef.current.videoWidth;
-        canvasRef.current.height = videoRef.current.videoHeight;
+        const canvas = canvasRef.current;
+        const video = videoRef.current;
+        if (!landmarks || !canvas || !video) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
         ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
         ctx.fillStyle = 'lime';
         landmarks.forEach(pt => {
@@ -17,7 +19,7 @@ export default function LandmarkDebugCanvas({ videoRef }) {
             ctx.arc(pt.x * ctx.canvas.width, pt.y * ctx.canvas.height, 2, 0, 2 * Math.PI);
             ctx.fill();
         });
-    }, [landmarks]);
+    }, [landmarks, videoRef]);
 
     return (
         <canvas
