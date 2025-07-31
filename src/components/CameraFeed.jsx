@@ -22,14 +22,23 @@ const CameraFeed = forwardRef(function CameraFeed(_, videoRef) {
                 }
             })
             .catch(err => {
-                if (err.name === "NotFoundError") {
+                if (err.name === 'NotFoundError') {
                     // Reintenta sin constraints estrictas
-                    return navigator.mediaDevices.getUserMedia({ video: true });
+                    return navigator.mediaDevices
+                        .getUserMedia({ video: true })
+                        .then(stream => {
+                            if (videoRef.current) {
+                                videoRef.current.srcObject = stream;
+                                videoRef.current.play();
+                            }
+                        })
+                        .catch(e => setError(e.message));
                 }
-                throw err;
+                setError(err.message);
             });
 
-        return () => videoRef.current?.srcObject?.getTracks().forEach(t => t.stop());
+        const videoElement = videoRef.current;
+        return () => videoElement?.srcObject?.getTracks().forEach(t => t.stop());
     }, [videoRef]);
 
     return error ? (
