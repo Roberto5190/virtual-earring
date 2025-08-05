@@ -234,3 +234,19 @@ export const drawEarlobes = (face, canvasRef) => {
         ctx.fill();
     }
 };
+
+// Draw earrings on the canvas
+export const drawEarrings = (face, ctx, earringImg) => {
+    if (face.length > 0 && earringImg.complete) {
+        // Tamaño deseado para el pendiente (ajusta según la imagen)
+        const eWidth = 30;  // ancho en pixeles
+        const eHeight = 30; // alto en pixeles
+        // Coordenadas de anclaje (lóbulos)
+        const [xLeft, yLeft] = face[0].scaledMesh[234];
+        const [xRight, yRight] = face[0].scaledMesh[454];
+        // Dibujar la imagen del pendiente en el lóbulo izquierdo
+        ctx.drawImage(earringImg, xLeft - eWidth / 2, yLeft - 0, eWidth, eHeight);
+        // Dibujar la imagen del pendiente en el lóbulo derecho
+        ctx.drawImage(earringImg, xRight - eWidth / 2, yRight - 0, eWidth, eHeight);
+    }
+}

@@ -1,106 +1,103 @@
-import { useRef, useState } from 'react'
-import './App.css'
-import * as ttf from "@tensorflow/tfjs"
-import * as facemesh from "@tensorflow-models/facemesh"
-import Webcam from 'react-webcam'
-import { drawMesh, drawEarlobes } from './utilities/utilities'
+import { useRef, useState, useEffect } from 'react';
+import './App.css';
+import * as tf from '@tensorflow/tfjs';                 // 2.8.6
+import * as facemesh from '@tensorflow-models/facemesh';
+import Webcam from 'react-webcam';
+import { drawEarlobes } from './utilities/utilities';
+
+const ALPHA = 0.35;
 
 function App() {
-  // set error state
-  const [error, setError] = useState(null)
+  const [error, setError] = useState(null);
+  const webcamRef = useRef(null);
+  const canvasRef = useRef(null);
+  const rafIdRef  = useRef(null);
+  const modelRef  = useRef(null);
+  const smoothRef = useRef({ left: null, right: null });
 
-  // set  up references
-  const webcamRef = useRef(null)
-  const canvasRef = useRef(null)
+  const earringImg = useRef(new Image()).current;
+  earringImg.src = 'src/assets/react.svg';
 
-  const earringImg = new Image();
-  earringImg.src = "src/assets/react.svg";  // ruta a la imagen en la carpeta pública
+  const smooth = (n, p) =>
+    !p ? n : [ALPHA * n[0] + (1 - ALPHA) * p[0],
+              ALPHA * n[1] + (1 - ALPHA) * p[1]];
 
+  useEffect(() => {
+    let mounted = true;
 
+    const init = async () => {
+      try {
+        await tf.setBackend('webgl');   // usa WebGL incluido en tfjs@2.8.6
+        await tf.ready();
 
-  // load the facemesh model
-  const runFacemesh = async () => {
-    const net = await facemesh.load({
-      inputResolution: {
-        width: 640,
-        height: 480
-      },
-      scale: 0.8
-    })
+        modelRef.current = await facemesh.load({
+          inputResolution: { width: 640, height: 480 },
+          scale: 0.8,
+        });
+        rafIdRef.current = requestAnimationFrame(loop);
+      } catch (err) {
+        console.error(err);
+        setError('Error al inicializar TensorFlow o Facemesh');
+      }
+    };
 
-    setInterval(() => {
-      detect(net)
-    }, 100) // llamamos a la función detect y le pasamos net cada 100ms 
+    const loop = async () => {
+      if (!mounted) return;
+      const video  = webcamRef.current?.video;
+      const canvas = canvasRef.current;
+      const net    = modelRef.current;
 
-  }
-
-  //  Detect function
-  const detect = async (net) => {
-    if (
-      typeof webcamRef.current !== "undefined" && //comprobamos si webcamRef es undefined
-      webcamRef.current !== null && //comprobamos si webcamRef es null
-      webcamRef.current.video.readyState === 4 //comprobamos si el video está listo
-    ) {
-      //  get video properties
-      const video = webcamRef.current.video
-      const videoWidth = video.videoWidth
-      const videoHeight = video.videoHeight
-
-      // Set video width
-      webcamRef.current.video.width = videoWidth
-      webcamRef.current.video.height = videoHeight
-
-      // Set canvas width
-      canvasRef.current.width = videoWidth
-      canvasRef.current.height = videoHeight
-
-      // Make detections
-      const face = await net.estimateFaces(video)
-      // console.log(face)
-
-      console.log("Left earlobe:", face[0].scaledMesh[234], "Right earlobe:", face[0].scaledMesh[454]);
-
-      // Get canvas context for drawing
-      const ctx = canvasRef.current.getContext("2d")
-      // drawMesh(face, ctx)
-
-      // Draw earlobes on the canvas
-      drawEarlobes(face, canvasRef)
-
-      if (face.length > 0 && earringImg.complete) {
-        // Tamaño deseado para el pendiente (ajusta según la imagen)
-        const eWidth = 30;  // ancho en pixeles
-        const eHeight =30; // alto en pixeles
-        // Coordenadas de anclaje (lóbulos)
-        const [xLeft, yLeft] = face[0].scaledMesh[234];
-        const [xRight, yRight] = face[0].scaledMesh[454];
-        // Dibujar la imagen del pendiente en el lóbulo izquierdo
-        ctx.drawImage(earringImg, xLeft - eWidth / 2, yLeft - 0, eWidth, eHeight);
-        // Dibujar la imagen del pendiente en el lóbulo derecho
-        ctx.drawImage(earringImg, xRight - eWidth / 2, yRight - 0, eWidth, eHeight);
+      if (!(video && canvas && net && video.readyState === 4)) {
+        rafIdRef.current = requestAnimationFrame(loop);
+        return;
       }
 
-    } else {
-      // If webcamRef is not ready or video is not available, log an error
-      setError("Webcam is not ready or video is not available")
-      console.error("webcamRef is not ready or video is not available")
-    }
-  }
+      const { videoWidth: w, videoHeight: h } = video;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+      }
 
+      const faces = await net.estimateFaces(video);
+      const ctx   = canvas.getContext('2d');
 
+      ctx.clearRect(0, 0, w, h);
+      drawEarlobes(faces, canvasRef);
 
+      if (faces.length && earringImg.complete) {
+        const [xL, yL] = faces[0].scaledMesh[234];
+        const [xR, yR] = faces[0].scaledMesh[454];
 
+        smoothRef.current.left  = smooth([xL, yL], smoothRef.current.left);
+        smoothRef.current.right = smooth([xR, yR], smoothRef.current.right);
 
-  runFacemesh()
+        const [sxL, syL] = smoothRef.current.left;
+        const [sxR, syR] = smoothRef.current.right;
+
+        const eW = 30, eH = 30;
+        ctx.drawImage(earringImg, sxL - eW / 2, syL, eW, eH);
+        ctx.drawImage(earringImg, sxR - eW / 2, syR, eW, eH);
+      }
+
+      rafIdRef.current = requestAnimationFrame(loop);
+    };
+
+    init();
+
+    return () => {
+      mounted = false;
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+    };
+  }, []);
+
   return (
     <>
       <h1>Virtual Earring</h1>
       {error && <p className="error">{error}</p>}
-      <Webcam ref={webcamRef} className='absolute right-0 left-0 mx-auto' />
-      <canvas ref={canvasRef} className='absolute right-0 left-0 mx-auto' />
-
+      <Webcam ref={webcamRef} className="absolute right-0 left-0 mx-auto" />
+      <canvas ref={canvasRef} className="absolute right-0 left-0 mx-auto" />
     </>
-  )
+  );
 }
 
-export default App
+export default App;
