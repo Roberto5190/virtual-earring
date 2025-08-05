@@ -3,7 +3,7 @@ import './App.css'
 import * as ttf from "@tensorflow/tfjs"
 import * as facemesh from "@tensorflow-models/facemesh"
 import Webcam from 'react-webcam'
-import { drawMesh, drawEarlobes } from './utilities/utilities'
+import { drawMesh } from './utilities/utilities'
 
 function App() {
   // set error state
@@ -13,20 +13,15 @@ function App() {
   const webcamRef = useRef(null)
   const canvasRef = useRef(null)
 
-  const earringImg = new Image();
-  earringImg.src = "src/assets/react.svg";  // ruta a la imagen en la carpeta pública
-
-
-
   // load the facemesh model
   const runFacemesh = async () => {
     const net = await facemesh.load({
       inputResolution: {
         width: 640,
         height: 480
-      },
+      }, 
       scale: 0.8
-    })
+    }) 
 
     setInterval(() => {
       detect(net)
@@ -56,49 +51,25 @@ function App() {
 
       // Make detections
       const face = await net.estimateFaces(video)
-      // console.log(face)
-
-      console.log("Left earlobe:", face[0].scaledMesh[234], "Right earlobe:", face[0].scaledMesh[454]);
-
+      console.log(face)
       // Get canvas context for drawing
       const ctx = canvasRef.current.getContext("2d")
-      // drawMesh(face, ctx)
+      drawMesh(face, ctx)
 
-      // Draw earlobes on the canvas
-      drawEarlobes(face, canvasRef)
-
-      if (face.length > 0 && earringImg.complete) {
-        // Tamaño deseado para el pendiente (ajusta según la imagen)
-        const eWidth = 30;  // ancho en pixeles
-        const eHeight =30; // alto en pixeles
-        // Coordenadas de anclaje (lóbulos)
-        const [xLeft, yLeft] = face[0].scaledMesh[234];
-        const [xRight, yRight] = face[0].scaledMesh[454];
-        // Dibujar la imagen del pendiente en el lóbulo izquierdo
-        ctx.drawImage(earringImg, xLeft - eWidth / 2, yLeft - 0, eWidth, eHeight);
-        // Dibujar la imagen del pendiente en el lóbulo derecho
-        ctx.drawImage(earringImg, xRight - eWidth / 2, yRight - 0, eWidth, eHeight);
-      }
-
-    } else {
+    } else{
       // If webcamRef is not ready or video is not available, log an error
       setError("Webcam is not ready or video is not available")
       console.error("webcamRef is not ready or video is not available")
     }
   }
 
-
-
-
-
   runFacemesh()
   return (
     <>
       <h1>Virtual Earring</h1>
       {error && <p className="error">{error}</p>}
-      <Webcam ref={webcamRef} className='absolute right-0 left-0 mx-auto' />
-      <canvas ref={canvasRef} className='absolute right-0 left-0 mx-auto' />
-
+      <Webcam ref={webcamRef}  className='absolute right-0 left-0 mx-auto'/>
+      <canvas ref={canvasRef}  className='absolute right-0 left-0 mx-auto'/>
     </>
   )
 }
